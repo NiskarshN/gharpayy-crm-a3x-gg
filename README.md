@@ -1,26 +1,22 @@
-# techgg aabc
+# GharPay CRM – Hiring Assignment
 
-remove Property Command Center random data of property command CC. Also fix the lead parser from copy-paste to direct lead. Make it very great.
+A modern Customer Relationship Management (CRM) application built for the GharPay Hiring Assignment.
 
-This project was built with [Lovable](https://lovable.dev).
+## Modules Improved
 
-**Live app**: https://lead-straightener.lovable.app
+* Leads
+* Movement CARE
+* Booking Flow Split
 
-## Build with Lovable
+## Tech Stack
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/9647beb8-31db-47f9-87d7-25086abe2830).
+* React
+* TypeScript
+* Tailwind CSS
+* TanStack Router
+* Supabase
+* Vercel
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+## Project Overview
 
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
-```
+This project improves the GharPay CRM by reducing clicks, improving customer workflow, auto-saving data, showing owners and deadlines, and making lead management faster and easier.
