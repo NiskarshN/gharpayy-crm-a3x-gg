@@ -27,6 +27,7 @@ import { Route as OsRouteImport } from './routes/os'
 import { Route as MymovesRouteImport } from './routes/mymoves'
 import { Route as MyWorkRouteImport } from './routes/my-work'
 import { Route as MovementSplitRouteImport } from './routes/movement-split'
+import { Route as MovementOsRouteImport } from './routes/movement-os'
 import { Route as MovementCareRouteImport } from './routes/movement-care'
 import { Route as MovementRouteImport } from './routes/movement'
 import { Route as MonitoringRouteImport } from './routes/monitoring'
@@ -235,6 +236,11 @@ const MyWorkRoute = MyWorkRouteImport.update({
 const MovementSplitRoute = MovementSplitRouteImport.update({
   id: '/movement-split',
   path: '/movement-split',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MovementOsRoute = MovementOsRouteImport.update({
+  id: '/movement-os',
+  path: '/movement-os',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MovementCareRoute = MovementCareRouteImport.update({
@@ -868,6 +874,7 @@ export interface FileRoutesByFullPath {
   '/monitoring': typeof MonitoringRoute
   '/movement': typeof MovementRoute
   '/movement-care': typeof MovementCareRoute
+  '/movement-os': typeof MovementOsRoute
   '/movement-split': typeof MovementSplitRoute
   '/my-work': typeof MyWorkRoute
   '/mymoves': typeof MymovesRoute
@@ -1006,6 +1013,7 @@ export interface FileRoutesByTo {
   '/monitoring': typeof MonitoringRoute
   '/movement': typeof MovementRoute
   '/movement-care': typeof MovementCareRoute
+  '/movement-os': typeof MovementOsRoute
   '/movement-split': typeof MovementSplitRoute
   '/my-work': typeof MyWorkRoute
   '/mymoves': typeof MymovesRoute
@@ -1145,6 +1153,7 @@ export interface FileRoutesById {
   '/monitoring': typeof MonitoringRoute
   '/movement': typeof MovementRoute
   '/movement-care': typeof MovementCareRoute
+  '/movement-os': typeof MovementOsRoute
   '/movement-split': typeof MovementSplitRoute
   '/my-work': typeof MyWorkRoute
   '/mymoves': typeof MymovesRoute
@@ -1286,6 +1295,7 @@ export interface FileRouteTypes {
     | '/monitoring'
     | '/movement'
     | '/movement-care'
+    | '/movement-os'
     | '/movement-split'
     | '/my-work'
     | '/mymoves'
@@ -1424,6 +1434,7 @@ export interface FileRouteTypes {
     | '/monitoring'
     | '/movement'
     | '/movement-care'
+    | '/movement-os'
     | '/movement-split'
     | '/my-work'
     | '/mymoves'
@@ -1562,6 +1573,7 @@ export interface FileRouteTypes {
     | '/monitoring'
     | '/movement'
     | '/movement-care'
+    | '/movement-os'
     | '/movement-split'
     | '/my-work'
     | '/mymoves'
@@ -1702,6 +1714,7 @@ export interface RootRouteChildren {
   MonitoringRoute: typeof MonitoringRoute
   MovementRoute: typeof MovementRoute
   MovementCareRoute: typeof MovementCareRoute
+  MovementOsRoute: typeof MovementOsRoute
   MovementSplitRoute: typeof MovementSplitRoute
   MyWorkRoute: typeof MyWorkRoute
   MymovesRoute: typeof MymovesRoute
@@ -1892,6 +1905,13 @@ declare module '@tanstack/react-router' {
       path: '/movement-split'
       fullPath: '/movement-split'
       preLoaderRoute: typeof MovementSplitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/movement-os': {
+      id: '/movement-os'
+      path: '/movement-os'
+      fullPath: '/movement-os'
+      preLoaderRoute: typeof MovementOsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/movement-care': {
@@ -2899,6 +2919,7 @@ const rootRouteChildren: RootRouteChildren = {
   MonitoringRoute: MonitoringRoute,
   MovementRoute: MovementRoute,
   MovementCareRoute: MovementCareRoute,
+  MovementOsRoute: MovementOsRoute,
   MovementSplitRoute: MovementSplitRoute,
   MyWorkRoute: MyWorkRoute,
   MymovesRoute: MymovesRoute,

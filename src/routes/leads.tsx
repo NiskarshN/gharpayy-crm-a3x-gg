@@ -1,296 +1,818 @@
-import * as XLSX from "xlsx";
-import { Button } from "@/components/ui/button";
 import { createFileRoute } from "@tanstack/react-router";
-import { AppShell } from "@/components/AppShell";
-import { useApp } from "@/lib/store";
-import { ConfidenceBar, IntentChip, StageBadge } from "@/components/atoms";
-import { Input } from "@/components/ui/input";
-
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useMemo, useState } from "react";
-import { formatDistanceToNow } from "date-fns";
-import type { LeadStage } from "@/lib/types";
-import { useMountedNow } from "@/hooks/use-now";
 import {
-  LeadStackQueue, LeadFocusStack, LeadStageBoard, LeadMoveInBuckets, type LeadViewMode,
-} from "@/components/leads/LeadViews";
+  Search,
+  Phone,
+  MessageCircle,
+  Calendar,
+  Plus,
+  Flame,
+  Filter,
+  Users,
+  IndianRupee,
+  MapPin,
+  User,
+  Star,
+  Clock,
+} from "lucide-react";
+
+import { AppShell } from "@/components/AppShell";
+import { ClientOnly } from "@/components/ClientOnly";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
 
 export const Route = createFileRoute("/leads")({
-  head: () => ({
-    meta: [
-      { title: "Leads — Gharpayy" },
-      {
-        name: "description",
-        content: "Every lead, ranked by deal probability, one click into the control panel.",
-      },
-      { property: "og:title", content: "Leads — Gharpayy" },
-      { property: "og:description", content: "Manage every lead through a clear five-call closing ladder." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-    ],
-  }),
-  component: LeadsPage,
+  component: () => (
+    <AppShell>
+      <ClientOnly fallback={<div className="p-6">Loading Leads...</div>}>
+        <LeadsCRM />
+      </ClientOnly>
+    </AppShell>
+  ),
 });
 
-function LeadsPage() {
-  const { leads, tcms, selectLead } = useApp();
-  const [, mounted] = useMountedNow();
-  const [q, setQ] = useState("");
-  const [stage, setStage] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<"confidence" | "moveIn" | "updated">("confidence");
-  const [view, setView] = useState<LeadViewMode>("table");
+type Stage =
+  | "New Lead"
+  | "Qualified"
+  | "Site Visit"
+  | "Negotiation"
+  | "Booked"
+  | "Dropped";
 
-  const filtered = useMemo(() => {
-    const list = leads.filter((l) => {
-      if (q && !l.name.toLowerCase().includes(q.toLowerCase()) && !l.phone.includes(q))
-        return false;
-      if (stage !== "all" && l.stage !== stage) return false;
-      return true;
+type Priority = "Hot" | "Warm" | "Cold";
+
+interface Lead {
+  id: number;
+  name: string;
+  phone: string;
+  area: string;
+  budget: string;
+  owner: string;
+  stage: Stage;
+  score: number;
+  priority: Priority;
+  followUp: string;
+  notes: string;
+}
+
+const DEMO_LEADS: Lead[] = [
+  {
+    id: 1,
+    name: "Rahul Sharma",
+    phone: "9876543210",
+    area: "HSR Layout",
+    budget: "₹18,000",
+    owner: "Neha Verma",
+    stage: "Qualified",
+    score: 91,
+    priority: "Hot",
+    followUp: "2026-09-23",
+    notes: "Interested in 2BHK near Metro station.",
+  },
+  {
+    id: 2,
+    name: "Kavya Reddy",
+    phone: "9012345678",
+    area: "Koramangala",
+    budget: "₹15,000",
+    owner: "Rohan Iyer",
+    stage: "Site Visit",
+    score: 84,
+    priority: "Hot",
+    followUp: "2026-09-22",
+    notes: "Site visit scheduled tomorrow evening.",
+  },
+  {
+    id: 3,
+    name: "Amit Singh",
+    phone: "9123456789",
+    area: "Whitefield",
+    budget: "₹22,000",
+    owner: "Kunal Singh",
+    stage: "Negotiation",
+    score: 72,
+    priority: "Warm",
+    followUp: "2026-09-24",
+    notes: "Negotiating security deposit.",
+  },
+  {
+    id: 4,
+    name: "Priya Das",
+    phone: "9988776655",
+    area: "Indiranagar",
+    budget: "₹20,000",
+    owner: "Neha Verma",
+    stage: "Booked",
+    score: 98,
+    priority: "Hot",
+    followUp: "2026-09-28",
+    notes: "Advance payment received.",
+  },
+  {
+    id: 5,
+    name: "Sahil Reddy",
+    phone: "9090909090",
+    area: "Marathahalli",
+    budget: "₹14,000",
+    owner: "Rohan Iyer",
+    stage: "New Lead",
+    score: 56,
+    priority: "Cold",
+    followUp: "2026-09-25",
+    notes: "First call pending.",
+  },
+  {
+    id: 6,
+    name: "Sneha Kapoor",
+    phone: "8800112233",
+    area: "Bellandur",
+    budget: "₹25,000",
+    owner: "Kunal Singh",
+    stage: "Qualified",
+    score: 80,
+    priority: "Warm",
+    followUp: "2026-09-24",
+    notes: "Needs furnished apartment.",
+  },
+];
+
+function LeadsCRM() {
+  const [leads, setLeads] = useState(DEMO_LEADS);
+
+  const [search, setSearch] = useState("");
+  const [stageFilter, setStageFilter] = useState("All");
+  const [priorityFilter, setPriorityFilter] = useState("All");
+
+  const [newLead, setNewLead] = useState({
+    name: "",
+    phone: "",
+    area: "",
+    budget: "",
+    owner: "Neha Verma",
+  });
+
+  const filteredLeads = useMemo(() => {
+    return leads.filter((lead) => {
+      const searchMatch =
+        lead.name.toLowerCase().includes(search.toLowerCase()) ||
+        lead.phone.includes(search) ||
+        lead.area.toLowerCase().includes(search.toLowerCase());
+
+      const stageMatch =
+        stageFilter === "All" || lead.stage === stageFilter;
+
+      const priorityMatch =
+        priorityFilter === "All" ||
+        lead.priority === priorityFilter;
+
+      return searchMatch && stageMatch && priorityMatch;
     });
-    list.sort((a, b) => {
-      if (sortBy === "confidence") return b.confidence - a.confidence;
-      if (sortBy === "moveIn") return +new Date(a.moveInDate) - +new Date(b.moveInDate);
-      return +new Date(b.updatedAt) - +new Date(a.updatedAt);
+  }, [search, stageFilter, priorityFilter, leads]);
+
+  const stats = useMemo(() => {
+    return {
+      total: leads.length,
+      hot: leads.filter((l) => l.priority === "Hot").length,
+      booked: leads.filter((l) => l.stage === "Booked").length,
+      qualified: leads.filter((l) => l.stage === "Qualified").length,
+      revenue: "₹5.42 Lakh",
+    };
+  }, [leads]);
+
+  function addLead() {
+    if (!newLead.name || !newLead.phone) return;
+
+    setLeads((prev) => [
+      {
+        id: Date.now(),
+        ...newLead,
+        stage: "New Lead",
+        score: 55,
+        priority: "Cold",
+        followUp: new Date().toISOString().slice(0, 10),
+        notes: "",
+      },
+      ...prev,
+    ]);
+
+    setNewLead({
+      name: "",
+      phone: "",
+      area: "",
+      budget: "",
+      owner: "Neha Verma",
     });
-    return list;
-  }, [leads, q, stage, sortBy]);
+  }
 
-  const exportToExcel = () => {
-    const data = filtered.map((lead) => ({
-      Name: lead.name,
-      Phone: lead.phone,
-      Stage: lead.stage,
-      Intent: lead.intent,
-      Confidence: lead.confidence,
-      Area: lead.preferredArea,
-      Budget: lead.budget,
-    }));
+  function updateStage(id: number, stage: Stage) {
+    setLeads((prev) =>
+      prev.map((lead) =>
+        lead.id === id ? { ...lead, stage } : lead
+      )
+    );
+  }
 
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
+  function updateFollowUp(id: number, date: string) {
+    setLeads((prev) =>
+      prev.map((lead) =>
+        lead.id === id ? { ...lead, followUp: date } : lead
+      )
+    );
+  }
 
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
-    XLSX.writeFile(workbook, "Leads.xlsx");
-  };
+  function updateNotes(id: number, notes: string) {
+    setLeads((prev) =>
+      prev.map((lead) =>
+        lead.id === id ? { ...lead, notes } : lead
+      )
+    );
+  }
 
-  const totalLeads = leads.length;
+  function badgeColor(priority: Priority) {
+    switch (priority) {
+      case "Hot":
+        return "bg-red-100 text-red-600";
+      case "Warm":
+        return "bg-yellow-100 text-yellow-700";
+      default:
+        return "bg-blue-100 text-blue-700";
+    }
+  }
 
-  const bookedLeads = leads.filter((lead) => lead.stage === "booked").length;
+  function whatsapp(name: string) {
+    return `Hi ${name},
 
-  const negotiationLeads = leads.filter((lead) => lead.stage === "negotiation").length;
+Thank you for choosing Gharpayy.
 
-  const droppedLeads = leads.filter((lead) => lead.stage === "dropped").length;
+Your property enquiry has been received successfully.
+
+Our Relationship Manager will connect with you shortly.
+
+Regards,
+Gharpayy Team`;
+  }
 
   return (
-    <AppShell>
-      <div className="space-y-4">
-        <header className="flex items-end justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="font-display text-2xl font-semibold tracking-tight">Leads</h1>
-            <p className="text-sm text-muted-foreground">
-              {filtered.length} of {leads.length} · ranked by deal probability
+    <div className="space-y-6 p-6">
+
+      {/* HEADER */}
+
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-orange-600">
+            Gharpayy Lead Management CRM
+          </h1>
+
+          <p className="text-sm text-muted-foreground">
+            M-POWER CALL • AI Lead Score • WhatsApp CRM • Follow-up Scheduler
+          </p>
+        </div>
+
+        <Button className="bg-orange-600 hover:bg-orange-700">
+          <Plus className="mr-2 h-4 w-4" />
+          New Lead
+        </Button>
+      </div>
+
+      {/* KPI CARDS */}
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+
+        <Card className="p-5 bg-blue-50">
+          <Users className="text-blue-600 mb-2" />
+          <p className="text-xs text-muted-foreground uppercase">
+            Total Leads
+          </p>
+          <h2 className="text-3xl font-bold">{stats.total}</h2>
+        </Card>
+
+        <Card className="p-5 bg-red-50">
+          <Flame className="text-red-600 mb-2" />
+          <p className="text-xs text-muted-foreground uppercase">
+            Hot Leads
+          </p>
+          <h2 className="text-3xl font-bold">{stats.hot}</h2>
+        </Card>
+
+        <Card className="p-5 bg-green-50">
+          <Calendar className="text-green-600 mb-2" />
+          <p className="text-xs text-muted-foreground uppercase">
+            Qualified
+          </p>
+          <h2 className="text-3xl font-bold">{stats.qualified}</h2>
+        </Card>
+
+        <Card className="p-5 bg-orange-50">
+          <Star className="text-orange-600 mb-2" />
+          <p className="text-xs text-muted-foreground uppercase">
+            Bookings
+          </p>
+          <h2 className="text-3xl font-bold">{stats.booked}</h2>
+        </Card>
+
+        <Card className="p-5 bg-purple-50">
+          <IndianRupee className="text-purple-600 mb-2" />
+          <p className="text-xs text-muted-foreground uppercase">
+            Revenue
+          </p>
+          <h2 className="text-2xl font-bold">{stats.revenue}</h2>
+        </Card>
+
+      </div>
+
+      {/* SEARCH + FILTERS */}
+
+      <Card className="p-4 space-y-4">
+
+        <div className="flex items-center gap-2">
+          <Filter className="h-5 w-5 text-orange-600" />
+          <h3 className="font-semibold">Search & Filters</h3>
+        </div>
+
+        <div className="grid gap-3 lg:grid-cols-3">
+
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+
+            <Input
+              className="pl-10"
+              placeholder="Search Name / Phone / Area"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          <select
+            className="rounded-lg border p-2"
+            value={stageFilter}
+            onChange={(e) => setStageFilter(e.target.value)}
+          >
+            <option>All</option>
+            <option>New Lead</option>
+            <option>Qualified</option>
+            <option>Site Visit</option>
+            <option>Negotiation</option>
+            <option>Booked</option>
+            <option>Dropped</option>
+          </select>
+
+          <select
+            className="rounded-lg border p-2"
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value)}
+          >
+            <option>All</option>
+            <option>Hot</option>
+            <option>Warm</option>
+            <option>Cold</option>
+          </select>
+
+        </div>
+
+      </Card>
+
+      {/* ADD LEAD FORM */}
+
+      <Card className="p-5 space-y-4">
+
+        <h2 className="text-lg font-semibold">
+          ➕ Add New Customer Lead
+        </h2>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+
+          <Input
+            placeholder="Customer Name"
+            value={newLead.name}
+            onChange={(e) =>
+              setNewLead({ ...newLead, name: e.target.value })
+            }
+          />
+
+          <Input
+            placeholder="Phone Number"
+            value={newLead.phone}
+            onChange={(e) =>
+              setNewLead({ ...newLead, phone: e.target.value })
+            }
+          />
+
+          <Input
+            placeholder="Area"
+            value={newLead.area}
+            onChange={(e) =>
+              setNewLead({ ...newLead, area: e.target.value })
+            }
+          />
+
+          <Input
+            placeholder="Budget"
+            value={newLead.budget}
+            onChange={(e) =>
+              setNewLead({ ...newLead, budget: e.target.value })
+            }
+          />
+
+          <select
+            className="rounded-lg border p-2"
+            value={newLead.owner}
+            onChange={(e) =>
+              setNewLead({ ...newLead, owner: e.target.value })
+            }
+          >
+            <option>Neha Verma</option>
+            <option>Rohan Iyer</option>
+            <option>Kunal Singh</option>
+          </select>
+
+        </div>
+
+        <Button onClick={addLead} className="bg-orange-600">
+          Add Lead to CRM
+        </Button>
+
+      </Card>
+
+      {/* LEAD CARDS START HERE */}
+      <div className="grid gap-5 lg:grid-cols-2">
+                {filteredLeads.map((lead) => (
+          <Card key={lead.id} className="p-5 space-y-4 shadow-md">
+
+            {/* Customer Header */}
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-bold">{lead.name}</h2>
+
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                  <Phone className="h-4 w-4" />
+                  {lead.phone}
+                </div>
+
+                <div className="flex items-center gap-2 text-sm text-orange-600 mt-1">
+                  <MapPin className="h-4 w-4" />
+                  {lead.area}
+                </div>
+              </div>
+
+              <Badge className={badgeColor(lead.priority)}>
+                {lead.priority} • {lead.score}/100
+              </Badge>
+            </div>
+
+            {/* Budget + Owner */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg bg-slate-100 p-3">
+                <p className="text-xs text-muted-foreground">Budget</p>
+                <h3 className="font-semibold">{lead.budget}</h3>
+              </div>
+
+              <div className="rounded-lg bg-slate-100 p-3">
+                <p className="text-xs text-muted-foreground">Owner</p>
+
+                <div className="flex items-center gap-2 mt-1">
+                  <User className="h-4 w-4 text-orange-600" />
+                  <span className="font-medium">{lead.owner}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Stage */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Lead Stage
+              </label>
+
+              <select
+                value={lead.stage}
+                onChange={(e) =>
+                  updateStage(lead.id, e.target.value as Stage)
+                }
+                className="w-full rounded-lg border p-2"
+              >
+                <option>New Lead</option>
+                <option>Qualified</option>
+                <option>Site Visit</option>
+                <option>Negotiation</option>
+                <option>Booked</option>
+                <option>Dropped</option>
+              </select>
+            </div>
+
+            {/* AI Lead Score */}
+            <Card className="border-red-200 bg-red-50 p-4 space-y-3">
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Flame className="text-red-600" />
+                  <span className="font-semibold">AI Lead Score</span>
+                </div>
+
+                <span className="font-bold text-red-600">
+                  {lead.score}/100
+                </span>
+              </div>
+
+              <div className="h-3 w-full rounded-full bg-red-100">
+                <div
+                  className="h-3 rounded-full bg-red-500"
+                  style={{ width: `${lead.score}%` }}
+                />
+              </div>
+
+              <p className="text-sm font-medium">
+                {lead.priority === "Hot"
+                  ? "🔥 High Booking Probability"
+                  : lead.priority === "Warm"
+                  ? "🟡 Medium Booking Probability"
+                  : "🔵 Low Booking Probability"}
+              </p>
+
+              <div className="rounded-lg bg-white p-3 text-sm border">
+                <p className="font-semibold mb-2">AI Recommendation</p>
+
+                <ul className="list-disc ml-5 space-y-1">
+                  <li>Call customer within 30 minutes.</li>
+                  <li>Share matching property options.</li>
+                  <li>Schedule site visit immediately.</li>
+                  <li>Send WhatsApp follow-up after call.</li>
+                </ul>
+              </div>
+
+            </Card>
+
+            {/* Follow-up Scheduler */}
+            <Card className="p-4 space-y-3">
+
+              <div className="flex items-center gap-2">
+                <Clock className="text-orange-600" />
+                <h3 className="font-semibold">
+                  Follow-up Scheduler
+                </h3>
+              </div>
+
+              <input
+                type="date"
+                value={lead.followUp}
+                onChange={(e) =>
+                  updateFollowUp(lead.id, e.target.value)
+                }
+                className="w-full rounded-lg border p-2"
+              />
+
+              <div className="grid grid-cols-3 gap-2">
+
+                <Button size="sm" variant="outline">
+                  +30 mins
+                </Button>
+
+                <Button size="sm" variant="outline">
+                  Today 7 PM
+                </Button>
+
+                <Button size="sm" variant="outline">
+                  Tomorrow
+                </Button>
+
+              </div>
+
+            </Card>
+
+            {/* Notes */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Conversation Notes
+              </label>
+
+              <textarea
+                rows={3}
+                value={lead.notes}
+                onChange={(e) =>
+                  updateNotes(lead.id, e.target.value)
+                }
+                className="w-full rounded-lg border p-3"
+              />
+            </div>
+
+            {/* M-POWER CALL */}
+            <Card className="p-4 space-y-3 bg-green-50 border-green-200">
+
+              <h3 className="font-semibold text-green-700">
+                📞 M-POWER CALL
+              </h3>
+
+              <div className="grid grid-cols-2 gap-3">
+
+                <Button className="bg-green-600 hover:bg-green-700">
+                  Connected
+                </Button>
+
+                <Button variant="outline">
+                  Busy
+                </Button>
+
+                <Button variant="outline">
+                  No Answer
+                </Button>
+
+                <Button variant="outline">
+                  Wrong Number
+                </Button>
+
+                <Button variant="outline">
+                  Rejected
+                </Button>
+
+                <Button variant="outline">
+                  Call Later
+                </Button>
+
+              </div>
+
+            </Card>
+
+            {/* WhatsApp Generator */}
+            <Card className="p-4 bg-emerald-50 border-emerald-200 space-y-3">
+
+              <div className="flex items-center gap-2">
+                <MessageCircle className="text-green-600" />
+                <h3 className="font-semibold">
+                  WhatsApp Follow-up Generator
+                </h3>
+              </div>
+
+              <textarea
+                rows={5}
+                readOnly
+                className="w-full rounded-lg border p-3 bg-white"
+                value={whatsapp(lead.name)}
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+
+                <Button
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={() =>
+                    navigator.clipboard.writeText(
+                      whatsapp(lead.name)
+                    )
+                  }
+                >
+                  Copy Message
+                </Button>
+
+                <Button variant="outline">
+                  Share Property PDF
+                </Button>
+
+              </div>
+
+            </Card>
+
+            {/* Quick Actions */}
+            <div className="grid grid-cols-2 gap-3">
+
+              <Button className="bg-orange-600 hover:bg-orange-700">
+                Schedule Site Visit
+              </Button>
+
+              <Button variant="outline">
+                Mark as Booked
+              </Button>
+
+            </div>
+
+          </Card>
+        ))}
+      </div>
+
+      {/* Team Performance */}
+      <Card className="p-6 space-y-5">
+
+        <h2 className="text-xl font-bold">
+          Team Performance Summary
+        </h2>
+
+        <table className="w-full text-sm">
+          <thead className="border-b">
+            <tr>
+              <th className="py-2 text-left">Owner</th>
+              <th className="text-left">Leads</th>
+              <th className="text-left">Hot</th>
+              <th className="text-left">Booked</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {["Neha Verma", "Rohan Iyer", "Kunal Singh"].map(
+              (owner) => {
+                const ownerLeads = leads.filter(
+                  (l) => l.owner === owner
+                );
+
+                return (
+                  <tr key={owner} className="border-b">
+                    <td className="py-3 font-medium">{owner}</td>
+
+                    <td>{ownerLeads.length}</td>
+
+                    <td>
+                      {
+                        ownerLeads.filter(
+                          (l) => l.priority === "Hot"
+                        ).length
+                      }
+                    </td>
+
+                    <td>
+                      {
+                        ownerLeads.filter(
+                          (l) => l.stage === "Booked"
+                        ).length
+                      }
+                    </td>
+                  </tr>
+                );
+              }
+            )}
+          </tbody>
+        </table>
+
+      </Card>
+
+      {/* AI CRM Insights */}
+      <Card className="p-6 bg-gradient-to-r from-orange-500 to-red-500 text-white space-y-4">
+
+        <h2 className="text-2xl font-bold">
+          AI CRM Insights
+        </h2>
+
+        <div className="grid gap-4 md:grid-cols-2">
+
+          <div className="rounded-lg bg-white/20 p-4">
+            <p className="text-sm opacity-80">
+              Best Performing Area
+            </p>
+
+            <h3 className="text-xl font-bold mt-2">
+              HSR Layout
+            </h3>
+
+            <p className="text-sm mt-2">
+              Highest booking conversion this week.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search name or phone…"
-              className="h-9 w-56 text-sm"
-            />
+          <div className="rounded-lg bg-white/20 p-4">
+            <p className="text-sm opacity-80">
+              Highest AI Lead Score
+            </p>
 
-            <Select value={stage} onValueChange={setStage}>
-              <SelectTrigger className="h-9 w-44 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All stages</SelectItem>
-                {(
-                  [
-                    "new",
-                    "contacted",
-                    "tour-scheduled",
-                    "tour-done",
-                    "negotiation",
-                    "booked",
-                    "dropped",
-                  ] as LeadStage[]
-                ).map((s) => (
-                  <SelectItem key={s} value={s} className="capitalize">
-                    {s.replace("-", " ")}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <h3 className="text-xl font-bold mt-2">
+              Rahul Sharma • 91/100
+            </h3>
 
-            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-              <SelectTrigger className="h-9 w-44 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="confidence">Sort: Confidence</SelectItem>
-                <SelectItem value="moveIn">Sort: Move-in date</SelectItem>
-                <SelectItem value="updated">Sort: Last updated</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* 👇 New Button */}
-            <Button onClick={exportToExcel} className="h-9">
-              Export Excel
-            </Button>
-          </div>
-        </header>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="border rounded-lg p-4 bg-white shadow-sm">
-            <h3 className="text-gray-500 text-sm">Total Leads</h3>
-            <p className="text-3xl font-bold">{totalLeads}</p>
+            <p className="text-sm mt-2">
+              Prioritize immediate follow-up.
+            </p>
           </div>
 
-          <div className="border rounded-lg p-4 bg-green-50 shadow-sm">
-            <h3 className="text-green-600 text-sm">Booked</h3>
-            <p className="text-3xl font-bold text-green-700">{bookedLeads}</p>
+          <div className="rounded-lg bg-white/20 p-4">
+            <p className="text-sm opacity-80">
+              Today's AI Recommendation
+            </p>
+
+            <ul className="mt-2 list-disc ml-5 text-sm space-y-1">
+              <li>Call all Hot Leads within 30 minutes.</li>
+              <li>Send quotation after Site Visit.</li>
+              <li>Schedule tomorrow's follow-ups tonight.</li>
+            </ul>
           </div>
 
-          <div className="border rounded-lg p-4 bg-yellow-50 shadow-sm">
-            <h3 className="text-yellow-600 text-sm">Negotiation</h3>
-            <p className="text-3xl font-bold text-yellow-700">{negotiationLeads}</p>
+          <div className="rounded-lg bg-white/20 p-4">
+            <p className="text-sm opacity-80">
+              Predicted Booking Revenue
+            </p>
+
+            <h3 className="text-xl font-bold mt-2">
+              ₹8.75 Lakh
+            </h3>
+
+            <p className="text-sm mt-2">
+              Based on current pipeline probability.
+            </p>
           </div>
 
-          <div className="border rounded-lg p-4 bg-red-50 shadow-sm">
-            <h3 className="text-red-600 text-sm">Dropped</h3>
-            <p className="text-3xl font-bold text-red-700">{droppedLeads}</p>
-          </div>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 rounded-lg border border-border bg-muted/30 p-1.5">
-          {([
-            { key: "table", label: "Table" },
-            { key: "stack", label: "Stack queue" },
-            { key: "focus", label: "Focus stack" },
-            { key: "board", label: "Stage board" },
-            { key: "buckets", label: "Move-in buckets" },
-          ] as { key: LeadViewMode; label: string }[]).map((v) => (
-            <button
-              key={v.key}
-              onClick={() => setView(v.key)}
-              className={
-                "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors " +
-                (view === v.key
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted")
-              }
-            >
-              {v.label}
-            </button>
-          ))}
-        </div>
+      </Card>
 
-        {view === "table" && (
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="grid grid-cols-12 px-4 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold border-b border-border bg-muted/40">
-            <div className="col-span-3">Lead</div>
-            <div className="col-span-2">Stage</div>
-            <div className="col-span-2">Intent · score</div>
-            <div className="col-span-2">Area · budget</div>
-            <div className="col-span-2">Assigned</div>
-            <div className="col-span-1 text-right">Updated</div>
-          </div>
-          <div className="divide-y divide-border">
-            {filtered.map((l) => {
-              const tcm = tcms.find((t) => t.id === l.assignedTcmId);
-              return (
-                <div key={l.id}>
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    data-testid={`lead-row-${l.id}`}
-                    onPointerDownCapture={(e) => {
-                      const target = e.target as HTMLElement;
-                      if (target.closest('[data-copy-phone="true"]')) return;
-                      selectLead(l.id);
-                    }}
-                    onClick={() => selectLead(l.id)}
-                    onKeyDown={(e) => {
-                      if (e.key !== "Enter" && e.key !== " ") return;
-                      e.preventDefault();
-                      selectLead(l.id);
-                    }}
-                    className="w-full text-left grid grid-cols-12 px-4 py-3 items-center hover:bg-accent/5 transition-colors cursor-pointer"
-                  >
-                    <div className="col-span-3">
-                      <div className="font-medium text-sm">{l.name}</div>
-
-                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                        <span>
-                          {l.phone} · {l.source}
-                        </span>
-
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          data-copy-phone="true"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigator.clipboard.writeText(l.phone);
-                            alert("Phone Number Copied!");
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key !== "Enter" && e.key !== " ") return;
-                            e.preventDefault();
-                            e.stopPropagation();
-                            navigator.clipboard.writeText(l.phone);
-                            alert("Phone Number Copied!");
-                          }}
-                          className="rounded border px-2 py-0.5 text-[10px] text-blue-600 hover:bg-blue-50"
-                        >
-                          Copy
-                        </span>
-                      </div>
-                    </div>
-                    <div className="col-span-2">
-                      <StageBadge stage={l.stage} />
-                    </div>
-                    <div className="col-span-2 flex items-center gap-2">
-                      <IntentChip intent={l.intent} />
-                      <ConfidenceBar value={l.confidence} />
-                    </div>
-                    <div className="col-span-2 text-xs">
-                      <div>{l.preferredArea}</div>
-                      <div className="text-muted-foreground">₹{(l.budget / 1000).toFixed(0)}k</div>
-                    </div>
-                    <div className="col-span-2 text-xs">
-                      <div>{tcm?.name ?? "—"}</div>
-                      <div className="text-muted-foreground">{tcm?.zone ?? "—"}</div>
-                    </div>
-                    <div className="col-span-1 text-right text-[11px] text-muted-foreground">
-                      {mounted
-                        ? formatDistanceToNow(new Date(l.updatedAt), { addSuffix: true })
-                        : "—"}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            {filtered.length === 0 && (
-              <div className="text-center py-12 text-sm text-muted-foreground">No leads match.</div>
-            )}
-          </div>
-        </div>
-        )}
-
-        {view === "stack" && <LeadStackQueue leads={filtered} onOpen={selectLead} />}
-        {view === "focus" && <LeadFocusStack leads={filtered} onOpen={selectLead} />}
-        {view === "board" && <LeadStageBoard leads={filtered} onOpen={selectLead} />}
-        {view === "buckets" && <LeadMoveInBuckets leads={filtered} onOpen={selectLead} />}
+      {/* Footer */}
+      <div className="py-6 text-center text-sm text-muted-foreground">
+        Gharpayy CRM MVP • Lead Management • AI Lead Score • WhatsApp Generator • M-POWER CALL
       </div>
-    </AppShell>
+
+    </div>
   );
 }
